@@ -644,6 +644,55 @@ Apply:
 ./scripts/bootstrap.sh 4-cicd
 ```
 
+## Add A New Workload Project
+
+To onboard a new workload project (AWS account equivalent), update `configs/workloads-config.yaml` and run stage 3.
+
+### 1) Add an entry in `configs/workloads-config.yaml`
+
+```yaml
+- project_id: "proj-prod-app-b"
+  name: "Prod App B"
+  folder: "production"
+  labels:
+    environment: "prod"
+    application: "app-b"
+    owner: "team-b@example.com"
+    cost-center: "CC-4002"
+  apis:
+    - compute.googleapis.com
+    - container.googleapis.com
+    - run.googleapis.com
+  shared_vpc:
+    enabled: true
+    host_project: "proj-net-hub"
+    subnets:
+      - "subnet-app-us-central1"
+  iam_bindings:
+    "roles/viewer":
+      - "group:gcp-developers@example.com"
+```
+
+### 2) Run project factory (stage 3)
+
+```bash
+./scripts/bootstrap.sh --plan-only 3-project-factory
+./scripts/bootstrap.sh 3-project-factory
+```
+
+### 3) Verify
+
+- Project is created in the correct folder (`production`, `non-production`, or `sandbox`)
+- Billing is linked
+- Required APIs are enabled
+- IAM bindings are applied
+- Shared VPC attachment and subnet permissions are created (if enabled)
+
+### Notes
+
+- `project_id` must be globally unique
+- You can add multiple workloads in one change and run stage 3 once
+
 ## Pre-Deploy Fixes Required
 
 Current code has a few blockers to resolve before production deployment:
