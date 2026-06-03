@@ -721,6 +721,25 @@ gcloud builds submit --config=cloudbuild/cloudbuild-plan.yaml --substitutions=_S
 gcloud builds submit --config=cloudbuild/cloudbuild-apply.yaml --substitutions=_STAGE=0-org-setup .
 ```
 
+## AWS CodeBuild vs GCP Cloud Build
+
+They are equivalent CI/CD concepts on different clouds.
+
+- AWS uses **CodeBuild** (often with CodePipeline)
+- GCP uses **Cloud Build**
+
+In this repository:
+
+- `cloudbuild/cloudbuild-plan.yaml` = Terraform plan pipeline (PR/check flow)
+- `cloudbuild/cloudbuild-apply.yaml` = Terraform apply pipeline (deploy flow)
+
+Terraform does the provisioning work:
+
+- `terraform plan` -> preview changes
+- `terraform apply` -> deploy changes
+
+`gcloud` is used for authentication, bootstrap, and Cloud Build operations; it is not the Terraform deploy engine.
+
 ## What To Do Next
 
 After code is ready, follow this operational sequence:
