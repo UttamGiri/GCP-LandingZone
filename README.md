@@ -478,6 +478,45 @@ flowchart LR
 | Site-to-Site VPN | Cloud HA VPN |
 | Landing Zone Accelerator pipeline | Terraform / IaC pipeline (Cloud Build) |
 
+## Common AWS Service Equivalents (Migration Quick Reference)
+
+| AWS Service | GCP Equivalent | Notes |
+|---|---|---|
+| EC2 | Compute Engine VM | General-purpose virtual machines |
+| EBS | Persistent Disk (PD) / Hyperdisk | Block storage attached to VMs |
+| EFS | Filestore | Managed NFS file storage |
+| AMI | Machine Image / Custom Image | VM image templates used to launch instances |
+| EC2 Spot Instances | Spot VMs | Discounted spare capacity, preemptible behavior |
+| S3 Bucket | Cloud Storage Bucket (GCS) | Object storage with Standard/Nearline/Coldline/Archive classes |
+| S3 Glacier / Deep Archive (cold storage) | Cloud Storage Coldline / Archive | Low-cost long-term retention tiers |
+| Auto Scaling Group | Managed Instance Group (MIG) autoscaling | VM fleet scaling based on metrics |
+| ELB / ALB / NLB | Cloud Load Balancing | Global and regional L4/L7 load balancing |
+| ECR | Artifact Registry | Container and artifact repositories |
+| IAM Role | Service Account + IAM bindings | Workload identity and access model |
+| Route 53 | Cloud DNS | Managed DNS zones and records |
+| CloudWatch | Cloud Monitoring + Cloud Logging | Metrics, logs, alerting, dashboards |
+| CloudTrail | Cloud Audit Logs | Admin/data access audit trails |
+| SQS | Pub/Sub | Messaging and event delivery |
+| SNS | Pub/Sub topics | Fan-out pub/sub notifications |
+| Lambda | Cloud Functions / Cloud Run | Event-driven and serverless compute |
+| RDS | Cloud SQL | Managed relational databases |
+| DynamoDB | Firestore / Bigtable / Spanner | Pick based on access and consistency needs |
+| Kinesis Data Streams | Pub/Sub / Dataflow | Streaming ingestion and processing |
+| Athena | BigQuery | Serverless SQL analytics on large datasets |
+| EMR | Dataproc | Managed Spark/Hadoop platform |
+| CloudFormation | Terraform / Deployment Manager (legacy) | Terraform is recommended for landing zones |
+
+### Storage class mapping for S3-style buckets
+
+| AWS S3 Storage Class | GCP Cloud Storage Class |
+|---|---|
+| S3 Standard | Standard |
+| S3 Standard-IA | Nearline |
+| S3 One Zone-IA | Nearline (regional design considerations) |
+| S3 Glacier Instant Retrieval | Nearline / Coldline (workload dependent) |
+| S3 Glacier Flexible Retrieval | Coldline |
+| S3 Glacier Deep Archive | Archive |
+
 ---
 
 ## Recommended Project Inventory
