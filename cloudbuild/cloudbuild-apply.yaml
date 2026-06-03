@@ -1,0 +1,33 @@
+steps:
+  - id: "init"
+    name: "Terraform Init"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        cd stages/${_STAGE}
+        terraform init -input=false
+
+  - id: "plan"
+    name: "Terraform Plan"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        cd stages/${_STAGE}
+        terraform plan -input=false -out=tfplan
+
+  - id: "apply"
+    name: "Terraform Apply"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        cd stages/${_STAGE}
+        terraform apply -input=false -auto-approve tfplan
+
+substitutions:
+  _STAGE: "0-org-setup"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

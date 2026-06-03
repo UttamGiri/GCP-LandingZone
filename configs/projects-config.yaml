@@ -1,0 +1,235 @@
+# Platform projects — equivalent to AWS LZA accounts-config.yaml
+projects:
+  # --- Management ---
+  - project_id: "proj-org-admin"
+    name: "Org Admin"
+    folder: "management"
+    labels:
+      environment: "management"
+      application: "org-admin"
+      owner: "platform-team"
+      cost-center: "CC-1000"
+    apis:
+      - cloudresourcemanager.googleapis.com
+      - orgpolicy.googleapis.com
+      - cloudbilling.googleapis.com
+      - serviceusage.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-billing-admin"
+    name: "Billing Admin"
+    folder: "management"
+    labels:
+      environment: "management"
+      application: "billing"
+      owner: "finops-team"
+      cost-center: "CC-1000"
+    apis:
+      - cloudbilling.googleapis.com
+      - bigquery.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-identity-admin"
+    name: "Identity Admin"
+    folder: "management"
+    labels:
+      environment: "management"
+      application: "identity"
+      owner: "platform-team"
+      cost-center: "CC-1000"
+    apis:
+      - iam.googleapis.com
+      - cloudresourcemanager.googleapis.com
+      - iamcredentials.googleapis.com
+    iam_bindings: {}
+
+  # --- Security ---
+  - project_id: "proj-scc-admin"
+    name: "SCC Admin"
+    folder: "security"
+    labels:
+      environment: "security"
+      application: "scc"
+      owner: "security-team"
+      cost-center: "CC-2000"
+    apis:
+      - securitycenter.googleapis.com
+      - cloudresourcemanager.googleapis.com
+      - logging.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-kms-admin"
+    name: "KMS Admin"
+    folder: "security"
+    labels:
+      environment: "security"
+      application: "kms"
+      owner: "security-team"
+      cost-center: "CC-2000"
+    apis:
+      - cloudkms.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-secops"
+    name: "SecOps"
+    folder: "security"
+    labels:
+      environment: "security"
+      application: "secops"
+      owner: "security-team"
+      cost-center: "CC-2000"
+    apis:
+      - logging.googleapis.com
+      - pubsub.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  # --- Networking ---
+  - project_id: "proj-net-hub"
+    name: "Network Hub"
+    folder: "networking"
+    labels:
+      environment: "infrastructure"
+      application: "network-hub"
+      owner: "network-team"
+      cost-center: "CC-3000"
+    apis:
+      - compute.googleapis.com
+      - dns.googleapis.com
+      - networkconnectivity.googleapis.com
+      - servicenetworking.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    shared_vpc_host: true
+    iam_bindings: {}
+
+  - project_id: "proj-net-egress"
+    name: "Network Egress"
+    folder: "networking"
+    labels:
+      environment: "infrastructure"
+      application: "network-egress"
+      owner: "network-team"
+      cost-center: "CC-3000"
+    apis:
+      - compute.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-dns-admin"
+    name: "DNS Admin"
+    folder: "networking"
+    labels:
+      environment: "infrastructure"
+      application: "dns"
+      owner: "network-team"
+      cost-center: "CC-3000"
+    apis:
+      - dns.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  # --- Logging ---
+  - project_id: "proj-log-archive"
+    name: "Log Archive"
+    folder: "logging"
+    labels:
+      environment: "infrastructure"
+      application: "log-archive"
+      owner: "platform-team"
+      cost-center: "CC-3000"
+    apis:
+      - logging.googleapis.com
+      - storage.googleapis.com
+      - bigquery.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-audit-logs"
+    name: "Audit Logs"
+    folder: "logging"
+    labels:
+      environment: "infrastructure"
+      application: "audit-logs"
+      owner: "platform-team"
+      cost-center: "CC-3000"
+    apis:
+      - logging.googleapis.com
+      - bigquery.googleapis.com
+      - pubsub.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-monitoring"
+    name: "Monitoring"
+    folder: "logging"
+    labels:
+      environment: "infrastructure"
+      application: "monitoring"
+      owner: "platform-team"
+      cost-center: "CC-3000"
+    apis:
+      - monitoring.googleapis.com
+      - logging.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  # --- Shared Services ---
+  - project_id: "proj-artifact-registry"
+    name: "Artifact Registry"
+    folder: "shared-services"
+    labels:
+      environment: "infrastructure"
+      application: "artifact-registry"
+      owner: "platform-team"
+      cost-center: "CC-3000"
+    apis:
+      - artifactregistry.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-cicd-shared"
+    name: "CI/CD Shared"
+    folder: "shared-services"
+    labels:
+      environment: "infrastructure"
+      application: "cicd"
+      owner: "platform-team"
+      cost-center: "CC-3000"
+    apis:
+      - cloudbuild.googleapis.com
+      - cloudresourcemanager.googleapis.com
+      - secretmanager.googleapis.com
+      - iam.googleapis.com
+    iam_bindings: {}
+
+  - project_id: "proj-secrets-shared"
+    name: "Secrets Shared"
+    folder: "shared-services"
+    labels:
+      environment: "infrastructure"
+      application: "secrets"
+      owner: "platform-team"
+      cost-center: "CC-3000"
+    apis:
+      - secretmanager.googleapis.com
+      - cloudresourcemanager.googleapis.com
+    iam_bindings: {}
+
+  # --- Bootstrap (Terraform state) ---
+  - project_id: "proj-bootstrap"
+    name: "Bootstrap"
+    folder: "management"
+    labels:
+      environment: "management"
+      application: "bootstrap"
+      owner: "platform-team"
+      cost-center: "CC-1000"
+    apis:
+      - storage.googleapis.com
+      - cloudresourcemanager.googleapis.com
+      - cloudbuild.googleapis.com
+      - iam.googleapis.com
+      - serviceusage.googleapis.com
+    iam_bindings: {}

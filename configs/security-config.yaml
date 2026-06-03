@@ -1,0 +1,95 @@
+# Security configuration — equivalent to AWS LZA security-config.yaml
+org_policies:
+  # --- IAM ---
+  - constraint: "iam.disableServiceAccountKeyCreation"
+    enforce: true
+    scope: "organization"
+
+  - constraint: "iam.automaticIamGrantsForDefaultServiceAccounts"
+    enforce: true
+    scope: "organization"
+
+  # --- Compute ---
+  - constraint: "compute.disableSerialPortAccess"
+    enforce: true
+    scope: "organization"
+
+  - constraint: "compute.requireOsLogin"
+    enforce: true
+    scope: "organization"
+
+  - constraint: "compute.vmExternalIpAccess"
+    enforce: true
+    deny_all: true
+    scope: "organization"
+
+  - constraint: "compute.skipDefaultNetworkCreation"
+    enforce: true
+    scope: "organization"
+
+  # --- Storage ---
+  - constraint: "storage.uniformBucketLevelAccess"
+    enforce: true
+    scope: "organization"
+
+  - constraint: "storage.publicAccessPrevention"
+    enforce: true
+    scope: "organization"
+
+  # --- SQL ---
+  - constraint: "sql.restrictPublicIp"
+    enforce: true
+    scope: "organization"
+
+  # --- Location ---
+  - constraint: "gcp.resourceLocations"
+    enforce: true
+    allowed_values:
+      - "in:us-locations"
+    scope: "organization"
+
+  # --- Sandbox exception — relaxed external IPs ---
+  - constraint: "compute.vmExternalIpAccess"
+    enforce: true
+    deny_all: false
+    scope: "folder"
+    folder: "sandbox"
+
+kms:
+  key_rings:
+    - name: "org-keyring"
+      location: "us-central1"
+      project: "proj-kms-admin"
+      keys:
+        - name: "log-encryption"
+          purpose: "ENCRYPT_DECRYPT"
+          rotation_period: "7776000s"    # 90 days
+        - name: "disk-encryption"
+          purpose: "ENCRYPT_DECRYPT"
+          rotation_period: "7776000s"
+        - name: "secret-encryption"
+          purpose: "ENCRYPT_DECRYPT"
+          rotation_period: "7776000s"
+
+log_sinks:
+  - name: "org-audit-logs"
+    destination: "storage.googleapis.com/projects/proj-log-archive/buckets/org-audit-logs"
+    filter: 'logName:"cloudaudit.googleapis.com"'
+    include_children: true
+
+  - name: "org-admin-activity"
+    destination: "bigquery.googleapis.com/projects/proj-audit-logs/datasets/audit_logs"
+    filter: 'protoPayload.@type="type.googleapis.com/google.cloud.audit.AuditLog" AND severity>=NOTICE'
+    include_children: true
+
+  - name: "org-vpc-flow-logs"
+    destination: "storage.googleapis.com/projects/proj-log-archive/buckets/vpc-flow-logs"
+    filter: 'resource.type="gce_subnetwork" AND jsonPayload.connection.dest_ip!=""'
+    include_children: true
+
+scc:
+  enabled: true
+  project: "proj-scc-admin"
+  services:
+    - containerthreatdetection.googleapis.com
+    - securitycenter.googleapis.com
