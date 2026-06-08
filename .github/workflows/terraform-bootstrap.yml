@@ -1,0 +1,55 @@
+name: Terraform Bootstrap
+
+on:
+  pull_request:
+    paths:
+      - "terraform/bootstrap/**"
+      - ".github/workflows/terraform-bootstrap.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "terraform/bootstrap/**"
+      - ".github/workflows/terraform-bootstrap.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform/bootstrap
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_TERRAFORM_SERVICE_ACCOUNT }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        run: terraform init -backend-config="hostname=${{ vars.TFE_HOSTNAME }}" -backend-config="organization=${{ vars.TFE_ORGANIZATION }}" -backend-config="workspaces:name=${{ vars.TFE_WORKSPACE }}"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -input=false -out=tfplan
+
+      - name: Terraform Apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: terraform apply -input=false -auto-approve tfplan
