@@ -1,23 +1,23 @@
-name: Terraform Bootstrap
+name: Terraform Object Storage
 
 on:
   pull_request:
     paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
-  push:               
+      - "terraform/object-storage/**"
+      - ".github/workflows/terraform-object-storage.yml"
+  push:
     branches:
       - main
     paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
+      - "terraform/object-storage/**"
+      - ".github/workflows/terraform-object-storage.yml"
 
 permissions:
   id-token: write
   contents: read
 
 concurrency:
-  group: terraform-bootstrap-workspace
+  group: terraform-object-storage-workspace
   cancel-in-progress: false
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform/bootstrap
+        working-directory: terraform/object-storage
 
     steps:
       - name: Checkout
