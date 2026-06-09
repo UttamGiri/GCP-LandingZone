@@ -1,3 +1,9 @@
 terraform {
-  backend "remote" {}
+  cloud {
+    organization = "vaflt-org"
+
+    workspaces {
+      name = "bootstrap-dev"
+    }
+  }
 }

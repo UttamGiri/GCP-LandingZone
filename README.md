@@ -64,16 +64,13 @@ Terraform Enterprise/Cloud backend fields:
 
 - `hostname` -> your TFE hostname (for example `app.terraform.io` or private TFE hostname)
 - `organization` -> your TFE organization name
-- `workspaces:name` -> workspace name that stores this stack state and locking
+- workspace name -> stores this stack state and locking
 
 Where these IDs are used:
 
-- Local init:
-  - `terraform init -backend-config="hostname=..." -backend-config="organization=..." -backend-config="workspaces:name=..."`
-- GitHub Actions init:
-  - `.github/workflows/terraform-bootstrap.yml` reads `TFE_HOSTNAME`, `TFE_ORGANIZATION`, `TFE_WORKSPACE`
-- Auth to TFE:
-  - `TF_API_TOKEN` secret is used by Terraform CLI in CI to talk to TFE
+- Terraform Cloud block in `terraform/bootstrap/versions.tf`
+- Auth token in CI:
+  - `TF_API_TOKEN` secret is used by Terraform CLI in GitHub Actions
 
 ## 3) OIDC federation from GitHub Actions
 
@@ -169,6 +166,11 @@ Enable:
    - local shell as `TF_TOKEN_app_terraform_io` (or matching private hostname pattern)
    - GitHub secret `TF_API_TOKEN`
 
+For this repository, default org/workspace is:
+
+- organization: `vaflt-org`
+- workspace: `bootstrap-dev`
+
 ### Step 4: Configure Terraform input variables
 
 ```bash
@@ -182,10 +184,7 @@ Edit `terraform.tfvars` with your real values.
 
 ```bash
 cd terraform/bootstrap
-terraform init \
-  -backend-config="hostname=<tfe-hostname>" \
-  -backend-config="organization=<tfe-organization>" \
-  -backend-config="workspaces:name=<tfe-workspace>"
+terraform init
 terraform plan
 terraform apply
 ```
@@ -210,9 +209,6 @@ Set these in your GitHub repo:
 - Secret: `GCP_WORKLOAD_IDENTITY_PROVIDER` = output `workload_identity_provider`
 - Secret: `GCP_TERRAFORM_SERVICE_ACCOUNT` = output `terraform_service_account_email`
 - Secret: `TF_API_TOKEN` = Terraform Enterprise API token
-- Variable: `TFE_HOSTNAME` = Terraform Enterprise hostname
-- Variable: `TFE_ORGANIZATION` = Terraform Enterprise organization
-- Variable: `TFE_WORKSPACE` = Terraform Enterprise workspace
 
 ### Step 8: Validate OIDC CI deployment
 
@@ -220,37 +216,6 @@ Set these in your GitHub repo:
 2. Merge to `main` to trigger `apply`.
 3. Confirm GitHub job uses OIDC auth (no service account key files).
 4. Confirm state and locking are in Terraform Enterprise workspace.
-
-### A. Configure variables
-
-Copy `terraform/bootstrap/terraform.tfvars.example` to `terraform/bootstrap/terraform.tfvars` and set values.
-
-### B. Configure Terraform Enterprise backend and bootstrap (first run)
-
-```bash
-cd terraform/bootstrap
-terraform init \
-  -backend-config="hostname=app.terraform.io" \
-  -backend-config="organization=<tfe-org>" \
-  -backend-config="workspaces=name=<tfe-workspace>"
-terraform plan
-terraform apply
-```
-
-After apply, capture outputs and add these GitHub repo secrets/variables:
-
-- `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- `GCP_TERRAFORM_SERVICE_ACCOUNT`
-- `TF_API_TOKEN` (GitHub secret)
-- `TFE_HOSTNAME` (GitHub variable, for example `app.terraform.io`)
-- `TFE_ORGANIZATION` (GitHub variable)
-- `TFE_WORKSPACE` (GitHub variable)
-
-### C. Run from GitHub Actions via OIDC
-
-Push to `main` (or open PR to run plan).
-
-Workflow path: `.github/workflows/terraform-bootstrap.yml`
 
 ## Deny-by-default model
 

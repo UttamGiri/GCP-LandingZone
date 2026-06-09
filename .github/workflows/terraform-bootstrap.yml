@@ -5,7 +5,7 @@ on:
     paths:
       - "terraform/bootstrap/**"
       - ".github/workflows/terraform-bootstrap.yml"
-  push:
+  push:               
     branches:
       - main
     paths:
@@ -39,7 +39,7 @@ jobs:
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Terraform Init
-        run: terraform init -backend-config="hostname=${{ vars.TFE_HOSTNAME }}" -backend-config="organization=${{ vars.TFE_ORGANIZATION }}" -backend-config="workspaces:name=${{ vars.TFE_WORKSPACE }}"
+        run: terraform init
 
       - name: Terraform Format Check
         run: terraform fmt -check
@@ -48,8 +48,8 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -input=false -out=tfplan
+        run: terraform plan -input=false
 
       - name: Terraform Apply
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: terraform apply -input=false -auto-approve tfplan
+        run: terraform apply -input=false -auto-approve
