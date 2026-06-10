@@ -2,6 +2,7 @@ locals {
   github_repository = "${var.github_org}/${var.github_repo}"
   terraform_roles = [
     "roles/serviceusage.serviceUsageAdmin",
+    "roles/storage.admin",
     "roles/resourcemanager.projectIamAdmin",
     "roles/iam.serviceAccountAdmin",
     "roles/iam.serviceAccountUser",

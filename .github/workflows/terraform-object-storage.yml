@@ -1,23 +1,22 @@
-name: Terraform Bootstrap
+name: Terraform Object Storage
 
 on:
-  workflow_dispatch:
   pull_request:
     paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
-  push:               
+      - "terraform/object-storage/**"
+      - ".github/workflows/terraform-object-storage.yml"
+  push:
     branches:
       - main
     paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
+      - "terraform/object-storage/**"
+      - ".github/workflows/terraform-object-storage.yml"
 
 permissions:
   contents: read
 
 concurrency:
-  group: terraform-bootstrap-workspace
+  group: terraform-object-storage-workspace
   cancel-in-progress: false
 
 jobs:
@@ -25,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: terraform/bootstrap
+        working-directory: terraform/object-storage
 
     steps:
       - name: Checkout
@@ -49,11 +48,5 @@ jobs:
         run: terraform plan -input=false -var-file=ci.tfvars.hcl
 
       - name: Terraform Apply
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform apply -input=false -auto-approve -var-file=ci.tfvars.hcl
-
-      - name: Show Bootstrap Outputs
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-        run: |
-          terraform output terraform_service_account_email
-          terraform output workload_identity_provider

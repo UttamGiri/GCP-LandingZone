@@ -1,236 +1,322 @@
-# GCP Landing Zone Bootstrap (FAST/Fabric style)
+# GCP Landing Zone Runbook (Seed OIDC -> Terraform Cloud Remote)
 
-This repository bootstraps the first 4 items needed to run enterprise Terraform from GitHub Actions using OIDC on Google Cloud:
+This runbook is a strict, step-by-step setup for this repository.
 
-1. Prerequisites and platform setup
-2. OIDC federation from GitHub Actions to Google Cloud
-3. Terraform deployer service account and required role bindings
-4. Enterprise Terraform code sources (Fabric + FAST references)
+It covers:
 
-## Architecture (OIDC + Terraform Bootstrap)
+- how to create nonprod/prod foundations
+- how to bootstrap OIDC trust with a one-time seed pipeline
+- how to run normal deployments with Terraform Cloud remote execution
+- where each credential is used
+
+---
+
+## 1) What this repository does
+
+- `terraform/bootstrap/`
+  - creates trust and identity resources in GCP:
+    - Workload Identity Pool
+    - Workload Identity Provider
+    - Terraform deployer service account
+    - IAM bindings/roles
+    - required APIs
+
+- `terraform/object-storage/`
+  - creates one sample resource:
+    - GCS bucket
+
+- Workflows:
+  - `.github/workflows/terraform-bootstrap-seed.yml` (one-time seed run)
+  - `.github/workflows/terraform-bootstrap.yml` (normal bootstrap updates)
+  - `.github/workflows/terraform-object-storage.yml` (normal resource deployment)
+
+---
+
+## 2) Execution model used here
+
+This repo is configured for **Terraform Cloud Remote execution** for normal runs.
+
+That means:
+
+- GitHub Actions triggers Terraform
+- Terraform Cloud workers execute plan/apply
+- Terraform Cloud stores state and lock
+- GCP provider credentials must be available in Terraform Cloud workspace runtime
+
+Important:
+- normal workflows do **not** use runner-side `google-github-actions/auth`
+- seed workflow uses temporary seed OIDC to create final trust resources
+
+---
+
+## 3) High-level flow (single source of truth)
 
 ```mermaid
-flowchart LR
-  Dev[Developer PR / Merge] --> GH[GitHub Actions Workflow]
-  GH -->|OIDC token| WIF[Workload Identity Pool + Provider]
-  WIF -->|Impersonate| SA[Service Account: tf-deployer]
-  SA -->|Terraform API calls| GCP[GCP Org / Folders / Projects]
-  GH -->|Terraform remote backend| TFE[(Terraform Enterprise Workspace)]
-  TFE -->|State + locking| TFELOCK[Managed state lock]
-
-  subgraph Bootstrap Project
-    WIF
-    SA
-  end
+flowchart TD
+  A[Collect org/billing/project/workspace inputs] --> B[Create nonprod/prod bootstrap projects]
+  B --> C[Create Terraform Cloud workspaces]
+  C --> D[Create one-time seed trust in GCP]
+  D --> E[Set seed secrets in GitHub]
+  E --> F[Run terraform-bootstrap-seed workflow]
+  F --> G[Read outputs: final provider + final deployer SA]
+  G --> H[Configure Terraform Cloud workspace runtime auth using final trust]
+  H --> I[Remove seed secrets / revoke seed access]
+  I --> J[Run normal bootstrap workflow]
+  J --> K[Run object-storage workflow]
+  K --> L[Validate no-drift and lock behavior]
 ```
 
-## 1) Prerequisites
+---
 
-- Google account with admin access to your target Google Cloud Organization
-- GCP Organization ID
-- Billing account ID
-- Bootstrap project ID (where WIF + deployer SA will live)
-- GitHub organization/repo and branch name for deployment
-- Terraform Enterprise/Cloud organization and workspace
-- Terraform API token (`TF_API_TOKEN`) for GitHub Actions
+## 4) Environment strategy
 
-### Create Google Cloud account and organization (first time)
+Use strict split:
 
-1. Create or sign in to a Google account.
-2. Go to [Google Cloud Console](https://console.cloud.google.com/) and activate billing.
-3. If you do not already have one, create a Google Cloud Organization (typically via Google Workspace/Cloud Identity domain setup).
-4. In the Organization, create a billing account and note `billing_account_id`.
-5. Create one bootstrap project and note `bootstrap_project_id`.
-6. Make sure your admin user can:
-   - enable APIs in bootstrap project
-   - create service accounts and IAM bindings
-   - create Workload Identity Pool and Provider
+- `develop` -> nonprod
+- `main` -> prod
 
-Enable APIs in bootstrap project:
+Recommended naming:
 
-- `iam.googleapis.com`
-- `cloudresourcemanager.googleapis.com`
-- `sts.googleapis.com`
-- `iamcredentials.googleapis.com`
-- `serviceusage.googleapis.com`
+- Projects:
+  - `lz-bootstrap-nonprod-<suffix>`
+  - `lz-bootstrap-prod-<suffix>`
+- Terraform Cloud workspaces:
+  - `bootstrap-nonprod`
+  - `bootstrap-prod`
+  - `object-storage-nonprod`
+  - `object-storage-prod`
 
-### Who should run bootstrap apply
+---
 
-Run the first `terraform apply` using a trusted admin identity (human admin or privileged automation account) that already has enough permissions in the bootstrap project/org. This bootstrap apply creates the deployer service account and OIDC trust.
+## 5) Prerequisites and how to collect IDs
 
-## 2) Terraform Enterprise IDs and where they are used
+## 5.1 Required prerequisites
 
-Terraform Enterprise/Cloud backend fields:
+- Google Cloud Organization exists
+- Billing account exists
+- Terraform Cloud org exists (example: `vaflt-org`)
+- GitHub repository access with Actions permissions
+- Admin access to create initial seed trust in GCP
 
-- `hostname` -> your TFE hostname (for example `app.terraform.io` or private TFE hostname)
-- `organization` -> your TFE organization name
-- workspace name -> stores this stack state and locking
-
-Where these IDs are used:
-
-- Terraform Cloud block in `terraform/bootstrap/versions.tf`
-- Auth token in CI:
-  - `TF_API_TOKEN` secret is used by Terraform CLI in GitHub Actions
-
-## 3) OIDC federation from GitHub Actions
-
-This repo creates:
-
-- Workload Identity Pool
-- Workload Identity Provider for GitHub (`https://token.actions.githubusercontent.com`)
-- Attribute mapping and condition locked to a single repo + branch
-- Binding that allows that GitHub principal to impersonate the Terraform deployer service account
-
-### How OIDC is enabled (exact flow)
-
-1. GitHub Actions requests an OIDC token from `token.actions.githubusercontent.com`.
-2. Google Workload Identity Provider validates the token issuer and claims.
-3. Attribute condition enforces repository and branch match (`repo` + `ref`).
-4. If condition passes, GitHub principal can impersonate `tf-deployer` service account using `roles/iam.workloadIdentityUser`.
-5. Terraform runs in CI as that service account identity (no key file).
-
-## 4) Terraform deployer service account + role bindings
-
-This repo creates `tf-deployer` in the bootstrap project and binds bootstrap-level roles needed for initial enterprise Terraform execution. Extend scope/least privilege as you move to org/folder/project-level modules.
-
-### Is a service account required?
-
-Yes, recommended. For GitHub OIDC to run Terraform safely in GCP, use a dedicated service account (created by this bootstrap) and allow only trusted GitHub principals to impersonate it. Avoid static service account keys.
-
-### Who assigns roles to this service account?
-
-The identity running the first bootstrap apply assigns roles. In enterprise setups, this is usually a platform admin group or break-glass automation identity.
-
-### Minimum role strategy
-
-- Start with only roles required for bootstrap resources.
-- Add folder/org/project roles only when a module needs them.
-- Prefer narrow scope (project/folder) over org-wide scope whenever possible.
-
-## 5) Enterprise code sources
-
-Use these official references as upstream module and blueprint sources:
-
-- Fabric modules: <https://github.com/GoogleCloudPlatform/cloud-foundation-fabric>
-- FAST blueprints: <https://github.com/GoogleCloudPlatform/cloud-foundation-fabric-fast>
-
-## How to use
-
-## Initial deployment prerequisites and full steps
-
-Follow this in order for first deployment.
-
-### Step 0: Collect required IDs and values
-
-Prepare these values before running Terraform:
-
-- `organization_id` (numeric, example `123456789012`)
-- `billing_account_id` (format `XXXXXX-XXXXXX-XXXXXX`)
-- `bootstrap_project_id` (project that will host WIF + deployer SA)
-- `github_org` and `github_repo`
-- deployment branch ref (for example `refs/heads/main`)
-- `wif_pool_id` and `wif_provider_id` names
-- deployer SA id (default `tf-deployer`)
-- `tfe_hostname` (example `app.terraform.io`)
-- `tfe_organization`
-- `tfe_workspace`
-
-### Step 1: Prepare Google Cloud account and org
-
-1. Sign in to Google Cloud with an admin user.
-2. Ensure Organization exists and you can view its ID.
-3. Ensure Billing account exists and is active.
-4. Create bootstrap project (or choose an existing one).
-5. Link bootstrap project to billing account.
-6. Ensure admin identity has permission to:
-   - enable project services
-   - create service accounts and IAM bindings
-   - create Workload Identity Pool and Provider
-
-### Step 2: Enable required APIs in bootstrap project
-
-Enable:
-
-- `iam.googleapis.com`
-- `cloudresourcemanager.googleapis.com`
-- `sts.googleapis.com`
-- `iamcredentials.googleapis.com`
-- `serviceusage.googleapis.com`
-
-### Step 3: Prepare Terraform Enterprise workspace and token
-
-1. Create/select TFE organization.
-2. Create/select workspace for bootstrap state.
-3. Create user/team API token with permission to run Terraform in that workspace.
-4. Keep token ready for:
-   - local shell as `TF_TOKEN_app_terraform_io` (or matching private hostname pattern)
-   - GitHub secret `TF_API_TOKEN`
-
-For this repository, default org/workspace is:
-
-- organization: `vaflt-org`
-- workspace: `bootstrap-dev`
-
-### Step 4: Configure Terraform input variables
+## 5.2 Get Organization ID
 
 ```bash
-cd terraform/bootstrap
-cp terraform.tfvars.example terraform.tfvars
+gcloud organizations list
 ```
 
-Edit `terraform.tfvars` with your real values.
-
-### Step 5: Initialize and run first bootstrap apply (admin identity)
+## 5.3 Get Billing Account ID
 
 ```bash
-cd terraform/bootstrap
-terraform init
-terraform plan
-terraform apply
+gcloud beta billing accounts list
 ```
 
-This creates:
+## 5.4 Create or select bootstrap projects
 
-- GitHub Workload Identity Pool + Provider
-- Terraform deployer service account
-- IAM binding for GitHub OIDC principal to impersonate service account
+```bash
+gcloud projects list
+```
 
-### Step 6: Capture Terraform outputs
+Optional create example:
 
-After apply, copy output values for:
+```bash
+gcloud projects create lz-bootstrap-nonprod-123 --organization=<ORG_ID>
+gcloud projects create lz-bootstrap-prod-123 --organization=<ORG_ID>
+gcloud beta billing projects link lz-bootstrap-nonprod-123 --billing-account=<BILLING_ID>
+gcloud beta billing projects link lz-bootstrap-prod-123 --billing-account=<BILLING_ID>
+```
 
-- `workload_identity_provider`
+## 5.5 Required APIs in each bootstrap project
+
+- `iam.googleapis.com`
+- `iamcredentials.googleapis.com`
+- `sts.googleapis.com`
+- `serviceusage.googleapis.com`
+- `cloudresourcemanager.googleapis.com`
+
+---
+
+## 6) One-time seed trust (required for OIDC-only bootstrap)
+
+You cannot start OIDC from absolute zero without a trust anchor.
+
+Create one-time seed trust in GCP (outside normal app deploy flow):
+
+- Seed Workload Identity Provider
+- Seed service account with minimal bootstrap permissions
+- IAM binding `roles/iam.workloadIdentityUser` from seed principal to seed SA
+
+Then add GitHub secrets (temporary):
+
+- `GCP_SEED_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SEED_TERRAFORM_SERVICE_ACCOUNT`
+- `TF_API_TOKEN`
+
+---
+
+## 7) Run one-time seed pipeline
+
+Run workflow manually:
+
+- `.github/workflows/terraform-bootstrap-seed.yml`
+
+This run creates final trust resources and prints outputs:
+
 - `terraform_service_account_email`
+- `workload_identity_provider`
 
-### Step 7: Configure GitHub repository secrets/variables
+These are your final runtime trust identifiers.
 
-Set these in your GitHub repo:
+---
 
-- Secret: `GCP_WORKLOAD_IDENTITY_PROVIDER` = output `workload_identity_provider`
-- Secret: `GCP_TERRAFORM_SERVICE_ACCOUNT` = output `terraform_service_account_email`
-- Secret: `TF_API_TOKEN` = Terraform Enterprise API token
+## 8) Configure Terraform Cloud remote runtime auth (final)
 
-### Step 8: Validate OIDC CI deployment
+For each target workspace (`bootstrap-*`, `object-storage-*`):
 
-1. Open PR touching `terraform/bootstrap/**` to trigger `plan`.
-2. Merge to `main` to trigger `apply`.
-3. Confirm GitHub job uses OIDC auth (no service account key files).
-4. Confirm state and locking are in Terraform Enterprise workspace.
+1. Workspace -> Settings -> General -> Execution Mode = `Remote`
+2. Configure workspace runtime auth for GCP using final trust values from seed outputs
+   - dynamic credentials preferred (federated)
+3. Configure stack variables required by that workspace
 
-## Deny-by-default model
+Note:
+- In this remote model, Terraform Cloud workers need GCP auth.
+- GitHub runner auth is not used for provider calls.
 
-Apply these controls so deployment access is deny-by-default:
+---
 
-1. Do not create service account keys.
-2. Allow impersonation only from a specific GitHub repo and branch (already enforced by provider condition and principalSet binding).
-3. Use dedicated deployer service account, not broad human admin identities in CI.
-4. Use least-privilege IAM roles and scoped bindings.
-5. Protect `main` branch and require PR review/status checks.
-6. Store only required secrets (`TF_API_TOKEN`, provider and SA identifiers) in GitHub.
+## 9) Remove seed access (mandatory hardening)
 
-If you need stricter controls, extend the attribute condition to include additional claims (for example environment/reusable workflow restrictions) and separate prod/non-prod workspaces and service accounts.
+After final runtime auth is verified:
 
-## Notes
+- Remove GitHub seed secrets:
+  - `GCP_SEED_WORKLOAD_IDENTITY_PROVIDER`
+  - `GCP_SEED_TERRAFORM_SERVICE_ACCOUNT`
+- Revoke seed IAM binding and/or disable seed SA
 
-- This is the bootstrap layer only (items 1-4).
-- Next layer typically adds org/folder/project/network/security modules from FAST/Fabric.
+---
+
+## 10) Normal day-2 operations
+
+Use normal workflows:
+
+- `.github/workflows/terraform-bootstrap.yml`
+- `.github/workflows/terraform-object-storage.yml`
+
+## Why both workflows are needed
+
+Two bootstrap workflows exist by design:
+
+- `terraform-bootstrap-seed.yml` (one-time)
+  - solves the first-run bootstrap problem (no trust exists yet)
+  - uses temporary seed trust to create final trust resources
+  - typically run once per environment, then retired
+
+- `terraform-bootstrap.yml` (day-2 maintenance)
+  - used after cutover for normal bootstrap changes
+  - updates IAM/provider/SA settings when foundation changes are required
+  - not usually run for every routine resource deployment
+
+This separation avoids permanently keeping high-privilege seed access in day-2 pipelines.
+
+Expected behavior:
+
+- GitHub triggers run
+- Terraform Cloud performs remote plan/apply
+- state + lock managed in Terraform Cloud
+
+---
+
+## 11) Branch and promotion model
+
+- PR to `develop` -> nonprod workspaces
+- PR to `main` -> prod workspaces
+
+Operational controls:
+
+- protect `main`
+- require approvals for prod
+- separate SA/workspace per env
+
+---
+
+## 12) What credentials are needed and where
+
+## 12.1 During seed run only (temporary)
+
+GitHub secrets:
+- `GCP_SEED_WORKLOAD_IDENTITY_PROVIDER`
+- `GCP_SEED_TERRAFORM_SERVICE_ACCOUNT`
+- `TF_API_TOKEN`
+
+## 12.2 During normal remote runs
+
+GitHub secret:
+- `TF_API_TOKEN`
+
+Terraform Cloud workspace runtime auth:
+- configured from final bootstrap outputs
+
+Clarification:
+- `GCP_TERRAFORM_SERVICE_ACCOUNT` and `GCP_WORKLOAD_IDENTITY_PROVIDER` as GitHub runner secrets are needed in runner-auth model, not required as runner inputs in this remote-execution model.
+
+## If SA/provider changes later, what to update
+
+In remote execution mode, provider auth is controlled in Terraform Cloud workspace runtime settings.
+
+If bootstrap changes service account or provider references, update in this order:
+
+1. Terraform Cloud workspace auth configuration (primary place)
+2. Any workspace variables that reference old SA/provider values
+3. GitHub secrets only if your workflows still consume those values directly
+
+Practical rule:
+- Remote execution model -> first update Terraform Cloud UI workspace auth
+- Runner-auth model -> first update GitHub secrets
+
+---
+
+## 13) Verification checklist
+
+After setup:
+
+- seed workflow succeeded once
+- final outputs captured
+- workspace execution mode is `Remote`
+- workspace runtime GCP auth configured
+- bootstrap workflow succeeds remotely
+- object-storage workflow succeeds remotely
+- workspace lock behavior works (no parallel corruption)
+- re-run shows `No changes`
+
+---
+
+## 14) Cost and safety notes
+
+Bootstrap resources are mostly IAM/WIF/API control plane and usually low cost.
+
+Object storage sample cost depends on:
+
+- storage volume
+- operation count
+- egress
+- versioning growth
+
+Set billing budget alerts at 50/80/100%.
+
+---
+
+## 15) Troubleshooting
+
+- `unauthorized_client ... rejected by attribute condition`
+  - provider condition mismatch (repo/branch/claims)
+
+- `Required token could not be found`
+  - `TF_API_TOKEN` missing/invalid
+
+- `No value for required variable`
+  - workspace/var-file inputs missing
+
+- `workspace already locked`
+  - active or stale lock in Terraform Cloud workspace
+
+- `No credentials loaded` in remote runs
+  - Terraform Cloud workspace runtime auth not configured for GCP
