@@ -2,16 +2,6 @@ name: Terraform Bootstrap
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
-  push:               
-    branches:
-      - main
-    paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
 
 permissions:
   contents: read
@@ -49,11 +39,9 @@ jobs:
         run: terraform plan -input=false -var-file=ci.tfvars.hcl
 
       - name: Terraform Apply
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         run: terraform apply -input=false -auto-approve -var-file=ci.tfvars.hcl
 
       - name: Show Bootstrap Outputs
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         run: |
           terraform output terraform_service_account_email
           terraform output workload_identity_provider

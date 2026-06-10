@@ -1,16 +1,7 @@
 name: Terraform Object Storage
 
 on:
-  pull_request:
-    paths:
-      - "terraform/object-storage/**"
-      - ".github/workflows/terraform-object-storage.yml"
-  push:
-    branches:
-      - main
-    paths:
-      - "terraform/object-storage/**"
-      - ".github/workflows/terraform-object-storage.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -48,5 +39,4 @@ jobs:
         run: terraform plan -input=false -var-file=ci.tfvars.hcl
 
       - name: Terraform Apply
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: terraform apply -input=false -auto-approve -var-file=ci.tfvars.hcl
