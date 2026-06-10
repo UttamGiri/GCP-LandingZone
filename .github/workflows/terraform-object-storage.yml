@@ -2,6 +2,11 @@ name: Terraform Object Storage
 
 on:
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual object-storage run"
+        required: false
+        default: "manual run"
 
 permissions:
   contents: read

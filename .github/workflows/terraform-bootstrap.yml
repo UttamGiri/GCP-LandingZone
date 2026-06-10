@@ -2,6 +2,11 @@ name: Terraform Bootstrap
 
 on:
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual bootstrap run"
+        required: false
+        default: "manual run"
 
 permissions:
   id-token: write
