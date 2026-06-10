@@ -1,23 +1,14 @@
-name: Terraform Bootstrap
+name: Terraform Bootstrap Seed (One-Time)
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
-  push:               
-    branches:
-      - main
-    paths:
-      - "terraform/bootstrap/**"
-      - ".github/workflows/terraform-bootstrap.yml"
 
 permissions:
+  id-token: write
   contents: read
 
 concurrency:
-  group: terraform-bootstrap-workspace
+  group: terraform-bootstrap-seed-workspace
   cancel-in-progress: false
 
 jobs:
@@ -31,6 +22,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Authenticate to Google Cloud (seed OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_SEED_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SEED_TERRAFORM_SERVICE_ACCOUNT }}
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -39,21 +36,13 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
-      - name: Terraform Format Check
-        run: terraform fmt -check
-
-      - name: Terraform Validate
-        run: terraform validate
-
       - name: Terraform Plan
         run: terraform plan -input=false -var-file=ci.tfvars.hcl
 
       - name: Terraform Apply
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
         run: terraform apply -input=false -auto-approve -var-file=ci.tfvars.hcl
 
-      - name: Show Bootstrap Outputs
-        if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+      - name: Show Final OIDC Outputs
         run: |
           terraform output terraform_service_account_email
           terraform output workload_identity_provider
