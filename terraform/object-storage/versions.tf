@@ -3,7 +3,7 @@ terraform {
     organization = "vaflt-org"
 
     workspaces {
-      name = "object-storage-dev"
+      name = "object-storage-dev-2"
     }
   }
 
