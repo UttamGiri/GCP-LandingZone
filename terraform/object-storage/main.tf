@@ -34,3 +34,22 @@ resource "google_storage_bucket" "object_storage_extra" {
     bucket_type = "extra"
   }
 }
+
+resource "google_storage_bucket" "object_storage_archive" {
+  name                        = "${var.bucket_name}-archive"
+  location                    = var.bucket_location
+  project                     = var.project_id
+  uniform_bucket_level_access = true
+  force_destroy               = false
+
+  versioning {
+    enabled = true
+  }
+
+  labels = {
+    environment = var.environment
+    managed_by  = "terraform"
+    stack       = "object-storage"
+    bucket_type = "archive"
+  }
+}
