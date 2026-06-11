@@ -7,3 +7,13 @@ output "bucket_url" {
   description = "GCS bucket URL."
   value       = "gs://${google_storage_bucket.object_storage.name}"
 }
+
+output "extra_bucket_name" {
+  description = "Created extra GCS bucket name."
+  value       = google_storage_bucket.object_storage_extra.name
+}
+
+output "extra_bucket_url" {
+  description = "Extra GCS bucket URL."
+  value       = "gs://${google_storage_bucket.object_storage_extra.name}"
+}
