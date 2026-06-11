@@ -7,6 +7,14 @@ on:
         description: "Reason for manual object-storage run"
         required: false
         default: "manual run"
+      run_apply:
+        description: "Run terraform apply"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
 
 permissions:
   id-token: write
@@ -51,4 +59,5 @@ jobs:
         run: terraform plan -input=false -var-file=ci.tfvars.hcl
 
       - name: Terraform Apply
+        if: ${{ github.event.inputs.run_apply == 'true' }}
         run: terraform apply -input=false -auto-approve -var-file=ci.tfvars.hcl
